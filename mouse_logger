@@ -39,7 +39,7 @@ class MouseLogger(QWidget):
 
 app = QApplication(sys.argv)
 
-window = TouchLogger()
+window = MouseLogger()
 window.show()
 
 sys.exit(app.exec())
