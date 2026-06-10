@@ -1,0 +1,66 @@
+import sys
+from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtCore import Qt, QEvent
+
+class TouchLogger(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Touch Logger")
+        
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+        )
+
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_AcceptTouchEvents,
+            True
+        )
+
+        self.showFullScreen()
+
+        print("Touch the screen...")
+
+    def event(self, event):
+        if event.type() == QEvent.Type.TouchBegin:
+            for point in event.points():
+                pos = point.position()
+
+                print(
+                    f"DOWN X={pos.x():.1f} "
+                    f"Y={pos.y():.1f}"
+                )
+
+            return True
+        
+        elif event.type() == QEvent.Type.TouchUpdate:
+            for point in event.points():
+                pos = point.position()
+
+                print(
+                    f"MOVE X={pos.x():.1f}"
+                    f"Y={pos.y():.1f}"
+                )
+
+            return True
+        
+        elif event.type() == QEvent.Type.TouchEnd:
+            for point in event.points():
+                pos = point.position()
+
+                print(
+                    f"UP X={pos.x():.1f}"
+                    f"Y={pos.y():.1f}"
+                )
+
+            return True
+        
+        return super().event(event)
+    
+
+app = QApplication(sys.argv)
+
+window = TouchLogger()
+window.show()
+
+sys.exit(app.exec())
