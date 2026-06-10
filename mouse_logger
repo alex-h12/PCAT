@@ -24,17 +24,17 @@ class MouseLogger(QWidget):
     def mousePressEvent(self, event):
         print(
             f"DOWN X={event.position().x():.1f} "
-            f"Y={event.position().y():.1f}"
+            f" Y={event.position().y():.1f}"
         )
     def mouseMovesEvent(self, event):
         print(
             f"MOVE X={event.position().x():.1f} "
-            f"Y={event.position().y():.1f}"
+            f" Y={event.position().y():.1f}"
         )
     def mouseReleaseEvent(self, event):
         print(
             f"UP X={event.position().x():.1f} "
-            f"Y={event.position().y():.1f}"
+            f" Y={event.position().y():.1f}"
         )
 
 app = QApplication(sys.argv)
