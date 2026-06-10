@@ -28,7 +28,7 @@ class TouchLogger(QWidget):
 
                 print(
                     f"DOWN X={pos.x():.1f} "
-                    f"Y={pos.y():.1f}"
+                    f" Y={pos.y():.1f}"
                 )
 
             return True
@@ -39,7 +39,7 @@ class TouchLogger(QWidget):
 
                 print(
                     f"MOVE X={pos.x():.1f}"
-                    f"Y={pos.y():.1f}"
+                    f" Y={pos.y():.1f}"
                 )
 
             return True
@@ -50,7 +50,7 @@ class TouchLogger(QWidget):
 
                 print(
                     f"UP X={pos.x():.1f}"
-                    f"Y={pos.y():.1f}"
+                    f" Y={pos.y():.1f}"
                 )
 
             return True
