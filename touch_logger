@@ -1,10 +1,13 @@
 import sys
+import time
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QEvent
 
 class TouchLogger(QWidget):
     def __init__(self):
         super().__init__()
+
+        self.latest_touch = None
 
         self.setWindowTitle("Touch Logger")
         
@@ -21,46 +24,44 @@ class TouchLogger(QWidget):
 
         print("Touch the screen...")
 
+    def store_touch(self, event_type, point):
+        pos = point.position()
+
+        self.latest_touch = {
+            "event_type": event_type,
+            "x": pos.x(),
+            "y": pos.y(),
+            "timestamp": time.time()
+        }
+
+        print(
+            f"{event_type} X={pos.x():.0f} "
+            f"Y={pos.y():.0f}"
+        )
+
+    def get_latest_touch(self):
+        return self.latest_touch
+
     def event(self, event):
         if event.type() == QEvent.Type.TouchBegin:
             for point in event.points():
-                pos = point.position()
-
-                print(
-                    f"DOWN X={pos.x():.1f} "
-                    f" Y={pos.y():.1f}"
-                )
-
+                self.store_touch("DOWN", point)
             return True
         
         elif event.type() == QEvent.Type.TouchUpdate:
             for point in event.points():
-                pos = point.position()
-
-                print(
-                    f"MOVE X={pos.x():.1f}"
-                    f" Y={pos.y():.1f}"
-                )
-
+                self.store_touch("MOVE", point)
             return True
         
         elif event.type() == QEvent.Type.TouchEnd:
             for point in event.points():
-                pos = point.position()
-
-                print(
-                    f"UP X={pos.x():.1f}"
-                    f" Y={pos.y():.1f}"
-                )
-
+                self.store_touch("UP", point)
             return True
         
         return super().event(event)
     
-
-app = QApplication(sys.argv)
-
-window = TouchLogger()
-window.show()
-
-sys.exit(app.exec())
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = TouchLogger()
+    window.show()
+    sys.exit(app.exec())
