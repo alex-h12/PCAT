@@ -2,12 +2,17 @@ import sys
 import time
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QPainter, QFont
 
 class TouchLogger(QWidget):
-    def __init__(self):
+    def __init__(self, print_enabled=False):
         super().__init__()
 
+        if __name__ == "__main__":
+            print_enabled=True
+
         self.latest_touch = None
+        self.print_enabled = print_enabled
 
         self.setWindowTitle("Touch Logger")
         
@@ -22,7 +27,9 @@ class TouchLogger(QWidget):
 
         self.showFullScreen()
 
-        print("Touch the screen...")
+        if self.print_enabled:
+            print("Touch the screen...")
+            print("Press ESC to close ")
 
     def store_touch(self, event_type, point):
         pos = point.position()
@@ -34,10 +41,13 @@ class TouchLogger(QWidget):
             "timestamp": time.time()
         }
 
-        print(
-            f"{event_type} X={pos.x():.0f} "
-            f"Y={pos.y():.0f}"
-        )
+        self.update()
+
+        if self.print_enabled:
+            print(
+                f"{event_type} X={pos.x():.1f}"
+                f" Y={pos.y():.1f}"
+            )
 
     def get_latest_touch(self):
         return self.latest_touch
@@ -59,6 +69,27 @@ class TouchLogger(QWidget):
             return True
         
         return super().event(event)
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+
+    def paintEvent(self, event):
+            painter = QPainter(self)
+
+            font = QFont()
+            font.setPointSize(20)
+            painter.setFont(font)
+
+            painter.drawText(20, 40, "Press ESC to close")
+            
+            if self.latest_touch is None:
+                painter.drawText(20, 65, "X = ---")
+                painter.drawText(20, 90, "Y = ---")
+            else:
+                painter.drawText(20, 65, f"X = {self.latest_touch["x"]:.1f}")
+                painter.drawText(20, 90, f"Y = {self.latest_touch["y"]:.1f}")
+            
     
 if __name__ == "__main__":
     app = QApplication(sys.argv)
