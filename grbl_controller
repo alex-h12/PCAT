@@ -1,0 +1,146 @@
+import time
+import serial
+
+class GRBLController:
+    def __init__(self, port: str, baudrate: int = 115200, timeout: float = 1.0):
+        self.port = port
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self.ser = None
+
+    def connect(self):
+        self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+        time.sleep(2)       # GRBL resets after serial connection
+
+        self.ser.write(b"\r\n\r\n")
+        time.sleep(2)
+        self.ser.reset_input_buffer()
+
+        print(f"Connected to GRBL on {self.port}")
+
+    def disconnect(self):
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+            print("Disconnected from GRBL")
+
+    def send_command(self, command: str, wait_for_ok: bool = True):
+        if not self.ser or not self.ser.is_open:
+            raise RuntimeError("GRBL is not connected")
+
+        command = command.strip()
+        print(f">> {command}")
+
+        self.ser.write((command + "\n").encode())
+
+        if wait_for_ok:
+            return self._wait_for_response()
+
+    def _wait_for_response(self):
+        responses = []      #Store responses for troubleshooting
+
+        while True:
+            line = self.ser.readline().decode(errors="ignore").strip()
+
+            if line:
+                print(f"<< {line}")
+                responses.append(line)
+
+                if line == "ok":
+                    return responses
+
+                if line.startswith("error"):
+                    raise RuntimeError(f"GRBL error: {line}")
+
+    def unlock(self):
+        self.send_command("$X")
+
+    ##def home(self):
+        ##self.send_command("$H")       #Only use if limit switches are installed
+
+    def set_absolute_mode(self):
+        self.send_command("G90")
+
+    def set_relative_mode(self):
+        self.send_command("G91")
+
+    def set_units_mm(self):
+        self.send_command("G21")
+
+    def move_to(self, x=None, y=None, z=None, feedrate=1000):
+        parts = ["G1"]
+
+        if x is not None:
+            parts.append(f"X{x:.3f}")
+        if y is not None:
+            parts.append(f"Y{y:.3f}")
+        if z is not None:
+            parts.append(f"Z{z:.3f}")
+
+        parts.append(f"F{feedrate}")
+
+        self.send_command(" ".join(parts))
+
+    def rapid_to(self, x=None, y=None, z=None):
+        parts = ["G0"]
+
+        if x is not None:
+            parts.append(f"X{x:.3f}")
+        if y is not None:
+            parts.append(f"Y{y:.3f}")
+        if z is not None:
+            parts.append(f"Z{z:.3f}")
+
+        self.send_command(" ".join(parts))
+
+    def get_status(self):
+        if not self.ser or not self.ser.is_open:
+            raise RuntimeError("GRBL is not connected")
+
+        self.ser.write(b"?")
+        line = self.ser.readline().decode(errors="ignore").strip()
+        print(f"<< {line}")
+        return line
+
+    def get_position(self):
+        self.send_command("?", wait_for_ok=False)
+        line = self.ser.readline().decode(errors="ignore").strip()
+        print(f"<< {line}")
+        return line
+
+    def dwell(self, seconds: float):
+        self.send_command(f"G4 P{seconds:.3f}")
+
+    def pen_down(self, s_value=1000):
+        self.send_command(f"M3 S{s_value}")
+
+    def pen_up(self):
+        self.send_command("M5")
+
+    def set_servo(self, s_value):
+        self.send_command(f"M3 S{s_value}")
+
+
+if __name__ == "__main__":
+    grbl = GRBLController(port="COM5")      # Change to Arduino's port
+
+    try:
+        grbl.connect()
+
+        grbl.set_units_mm()
+        grbl.set_absolute_mode()
+
+        grbl.unlock()
+        ##grbl.home()       #Use with limit switches to set home position
+
+        grbl.send_command("M5")
+        time.sleep(2)
+        grbl.send_command("M3 S1000")
+        time.sleep(2)
+        grbl.move_to(x=20, y=20, feedrate=1000)
+        time.sleep(2)
+        grbl.move_to(x=50, y=20, feedrate=1000)
+        time.sleep(2)
+        grbl.move_to(x=50, y=50, feedrate=1000)
+
+    finally:
+        grbl.disconnect()
