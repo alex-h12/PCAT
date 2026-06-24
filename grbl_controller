@@ -13,6 +13,7 @@ class GRBLController:
         time.sleep(2)       # GRBL resets after serial connection
 
         self.ser.write(b"\r\n\r\n")
+
         time.sleep(2)
         self.ser.reset_input_buffer()
 
@@ -66,7 +67,7 @@ class GRBLController:
     def set_units_mm(self):
         self.send_command("G21")
 
-    def move_to(self, x=None, y=None, z=None, feedrate=1000):
+    def move_to(self, x=None, y=None, z=None, feedrate=200):
         parts = ["G1"]
 
         if x is not None:
@@ -110,37 +111,31 @@ class GRBLController:
     def dwell(self, seconds: float):
         self.send_command(f"G4 P{seconds:.3f}")
 
-    def pen_down(self, s_value=1000):
-        self.send_command(f"M3 S{s_value}")
-
-    def pen_up(self):
-        self.send_command("M5")
-
-    def set_servo(self, s_value):
-        self.send_command(f"M3 S{s_value}")
-
-
 if __name__ == "__main__":
+    print("TESTING")
     grbl = GRBLController(port="COM5")      # Change to Arduino's port
 
     try:
         grbl.connect()
 
+        grbl.unlock()
         grbl.set_units_mm()
         grbl.set_absolute_mode()
 
-        grbl.unlock()
-        ##grbl.home()       #Use with limit switches to set home position
+        print("\nRunning XY motion test...")
 
-        grbl.send_command("M5")
-        time.sleep(2)
-        grbl.send_command("M3 S1000")
-        time.sleep(2)
-        grbl.move_to(x=20, y=20, feedrate=1000)
-        time.sleep(2)
-        grbl.move_to(x=50, y=20, feedrate=1000)
-        time.sleep(2)
-        grbl.move_to(x=50, y=50, feedrate=1000)
+        grbl.move_to(x=4, y=0, z=0, feedrate=200)
+        grbl.dwell(0.5)
+        grbl.move_to(x=4, y=7, z=0, feedrate=200)
+        grbl.dwell(0.5)
+        grbl.move_to(x=4, y=7, z=4, feedrate=200)
+        grbl.dwell(0.5)
+        grbl.move_to(x=0, y=7, z=4, feedrate=200)
+        grbl.dwell(0.5)
+        grbl.move_to(x=0, y=0, z=4, feedrate=200)
+        grbl.dwell(0.5)
+        grbl.move_to(x=0, y=0, z=0, feedrate=200)
+        grbl.dwell(0.5)
 
     finally:
         grbl.disconnect()
