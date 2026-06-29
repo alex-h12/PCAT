@@ -1,0 +1,38 @@
+def tap_test(grbl, force_logger, calibration):
+    print("Starting tap test...")
+
+    x_min = calibration.x_min 
+    x_max = calibration.x_max
+    y_min = calibration.y_min   
+    y_max = calibration.y_max
+
+    x = x_min
+    y = y_min
+
+    for x in range(x_min, x_max):
+        for y in range(y_min, y_max):
+            approach(
+                grbl = grbl,
+                x = x,
+                y = y,
+                safe_z = TEST_SAFE_Z,
+                xy_feedrate = TEST_XY_FEEDRATE,
+                z_feedrate = TEST_Z_FEEDRATE
+            )
+
+            press_until_force(
+                grbl = grbl,
+                force_logger = force_logger,
+                target_force = TEST_TARGET_FORCE,
+                z_step = TEST_Z_STEP,
+                z_feedrate = TEST_Z_FEEDRATE
+            )
+
+            time.sleep(2)
+
+            y += 1
+
+        y = y_min
+        x += 1
+
+    print("Tap test complete.")
