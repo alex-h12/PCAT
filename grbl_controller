@@ -99,14 +99,31 @@ class GRBLController:
 
         self.ser.write(b"?")
         line = self.ser.readline().decode(errors="ignore").strip()
-        print(f"<< {line}")
         return line
 
     def get_position(self):
-        self.send_command("?", wait_for_ok=False)
-        line = self.ser.readline().decode(errors="ignore").strip()
-        print(f"<< {line}")
-        return line
+        line = self.get_status()
+        
+        if "MPos:" not in line:
+            return None
+        
+        position = line.split("MPos:")[1].split("|")[0]
+        x, y, z = map(float, position.split(","))
+
+        return {
+            "x": x,
+            "y": y,
+            "z": z
+        }
+    
+    def jog(self, dx=0.0, dy=0.0, dz=0.0, feedrate=100):
+        position = self.get_position()
+        self.move_to(
+            x = position["x"] + dx,
+            y = position["y"] + dy,
+            z = position["z"] + dz,
+            feedrate = feedrate
+        )
 
     def dwell(self, seconds: float):
         self.send_command(f"G4 P{seconds:.3f}")
@@ -119,20 +136,21 @@ if __name__ == "__main__":
         grbl.connect()
 
         grbl.unlock()
+        ##grbl.home()       # Use with limit switches
         grbl.set_units_mm()
         grbl.set_absolute_mode()
 
         print("\nRunning XY motion test...")
 
-        grbl.move_to(x=4, y=0, z=0, feedrate=200)
+        grbl.move_to(x=7, y=0, z=0, feedrate=200)
         grbl.dwell(0.5)
-        grbl.move_to(x=4, y=7, z=0, feedrate=200)
+        grbl.move_to(x=7, y=4, z=0, feedrate=200)
         grbl.dwell(0.5)
-        grbl.move_to(x=4, y=7, z=4, feedrate=200)
+        grbl.move_to(x=7, y=4, z=2, feedrate=200)
         grbl.dwell(0.5)
-        grbl.move_to(x=0, y=7, z=4, feedrate=200)
+        grbl.move_to(x=0, y=4, z=2, feedrate=200)
         grbl.dwell(0.5)
-        grbl.move_to(x=0, y=0, z=4, feedrate=200)
+        grbl.move_to(x=0, y=0, z=2, feedrate=200)
         grbl.dwell(0.5)
         grbl.move_to(x=0, y=0, z=0, feedrate=200)
         grbl.dwell(0.5)
