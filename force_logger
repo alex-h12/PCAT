@@ -2,7 +2,7 @@ import serial
 import time
 
 class ForceLogger:
-    def __init__(self, port="COM4", baudrate=115200, timeout=1.0):
+    def __init__(self, port="COM9", baudrate=115200, timeout=1.0):
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
@@ -26,23 +26,18 @@ class ForceLogger:
         if not self.ser or not self.ser.is_open:
             raise RuntimeError("Force logger is not connected")
 
-        line = self.ser.readline().decode(errors="ignore").strip()
+        reading = self.ser.readline().decode(errors="ignore").strip()
 
-        if not line:
-            return self.latest_force
-
-        if line.startswith("FORCE,"):
+        if reading:
             try:
-                value = float(line.split(",")[1])
-                self.latest_force = value
-                return value
+                self.latest_force = float(reading)
             except ValueError:
-                return self.latest_force
+                pass
 
         return self.latest_force
 
 if __name__ == "__main__":
-    force = ForceLogger(port="COM4")  # Change COM4 to your Nano COM port
+    force = ForceLogger(port="COM6")
 
     try:
         force.connect()
