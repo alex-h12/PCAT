@@ -1,52 +1,95 @@
-import serial
 import time
+import serial
+import threading
 
 class ForceLogger:
-    def __init__(self, port="COM9", baudrate=115200, timeout=1.0):
+    def __init__(
+        self,
+        port="COM9",
+        baudrate=115200,
+        timeout=1.0
+    ):
         self.port = port
-        self.baudrate = baudrate
+        self.baudrate = baudrate 
         self.timeout = timeout
+
         self.ser = None
+
         self.latest_force = None
 
+        self.running = False
+        self.reader_thread = None
+        self.lock = threading.Lock()
+
     def connect(self):
-        self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+        self.ser = serial.Serial(
+            port=self.port,
+            baudrate=self.baudrate,
+            timeout=self.timeout
+        )
 
         time.sleep(2)
         self.ser.reset_input_buffer()
 
+        self.running = True
+
+        self.reader_thread = threading.Thread(
+            target=self.read_loop,
+            daemon=True
+        )
+        self.reader_thread.start()
+
         print(f"Connected to force logger on {self.port}")
 
+    def read_loop(self):
+        while self.running:
+            try:
+                reading = self.ser.readline().decode(errors="ignore").strip()
+
+                if not reading:
+                    continue
+
+                force = float(reading)
+
+                with self.lock:
+                    self.latest_force = force
+                    self.last_update_time = time.time()
+
+            except ValueError:
+                continue
+
+            except serial.SerialException as error:
+                if self.running:
+                    print(f"Force serial error: {error}")
+                break
+
+    def get_latest_force(self):
+        with self.lock:
+            return self.latest_force
+
     def disconnect(self):
+        self.running = False
+
+        if self.reader_thread is not None:
+            self.reader_thread.join(timeout=1.5)
+
         if self.ser and self.ser.is_open:
             self.ser.close()
-            print("Disconnected from force logger")
 
-    def update_force(self):
-        if not self.ser or not self.ser.is_open:
-            raise RuntimeError("Force logger is not connected")
+        print("Disconnected from force logger")
 
-        reading = self.ser.readline().decode(errors="ignore").strip()
-
-        if reading:
-            try:
-                self.latest_force = float(reading)
-            except ValueError:
-                pass
-
-        return self.latest_force
 
 if __name__ == "__main__":
-    force = ForceLogger(port="COM6")
+    force_logger = ForceLogger(port="COM9")
 
     try:
-        force.connect()
+        force_logger.connect()
 
         while True:
-            value = force.update_force()
+            force = force_logger.get_latest_force()
 
-            if value is not None:
-                print(f"Force: {value:.2f} g")
+            if force is not None:
+                print(f"Force: {force:.2f} g")
 
             time.sleep(0.05)
 
@@ -54,4 +97,4 @@ if __name__ == "__main__":
         print("Stopped force logger")
 
     finally:
-        force.disconnect()
+        force_logger.disconnect()
