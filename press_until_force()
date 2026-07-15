@@ -1,0 +1,68 @@
+def press_until_force(
+    grbl,
+    force_logger,
+    target_force,
+    z_step,
+    z_feedrate,
+    max_z=2.0,
+    settle_time=0.01,
+    status_poll_interval=0.01,
+    debug=True
+):
+    position = get_position(grbl)
+    z = position["z"]
+
+    sample_count = 0
+    start_time = time.time()
+
+    if debug:
+        print(
+            f"[PRESS] start_z={z:.3f} mm "
+            f"target={target_force:.2f} g "
+            f"max_z={max_z:.3f} mm "
+            f"step={z_step:.3f} mm "
+            f"feed={z_feedrate}"
+        )
+
+    while True:
+        force = force_logger.update_force(drain_buffer=True)
+        sample_count += 1
+
+        if debug:
+            age = force_logger.age_seconds()
+            age_text = f"{age:.3f}s" if age is not None else "None"
+            print(
+                f"[PRESS] sample={sample_count} "
+                f"z={z:.3f} mm "
+                f"force={force} g "
+                f"age={age_text}"
+            )
+
+        if force >= target_force:
+            if debug:
+                print(
+                    f"[PRESS] target reached at z={z:.3f} mm "
+                    f"force={force:.2f} g "
+                    f"elapsed={time.time() - start_time:.3f}s"
+                )
+            return z
+
+        next_z = z + z_step
+        if next_z > max_z:
+            raise RuntimeError(
+                f"Max Z reached before target force. "
+                f"z={z:.3f} mm, force={force}, target={target_force}"
+            )
+
+        move(
+            grbl,
+            z=next_z,
+            feedrate=z_feedrate
+        )
+
+        grbl.wait_until_idle(timeout=5.0)
+
+        if settle_time > 0:
+            time.sleep(settle_time)
+
+        z = next_z
