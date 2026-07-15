@@ -1,95 +1,93 @@
-import time
 import serial
-import threading
+import time
 
 class ForceLogger:
-    def __init__(
-        self,
-        port="COM9",
-        baudrate=115200,
-        timeout=1.0
-    ):
+    def __init__(self, port="COM9", baudrate=115200, timeout=0.05):
         self.port = port
-        self.baudrate = baudrate 
+        self.baudrate = baudrate
         self.timeout = timeout
-
         self.ser = None
 
         self.latest_force = None
-
-        self.running = False
-        self.reader_thread = None
-        self.lock = threading.Lock()
+        self.last_update_time = None
+        self.last_raw_line = None
 
     def connect(self):
         self.ser = serial.Serial(
-            port=self.port,
-            baudrate=self.baudrate,
+            self.port,
+            self.baudrate,
             timeout=self.timeout
         )
 
         time.sleep(2)
         self.ser.reset_input_buffer()
 
-        self.running = True
-
-        self.reader_thread = threading.Thread(
-            target=self.read_loop,
-            daemon=True
-        )
-        self.reader_thread.start()
-
         print(f"Connected to force logger on {self.port}")
 
-    def read_loop(self):
-        while self.running:
-            try:
-                reading = self.ser.readline().decode(errors="ignore").strip()
-
-                if not reading:
-                    continue
-
-                force = float(reading)
-
-                with self.lock:
-                    self.latest_force = force
-                    self.last_update_time = time.time()
-
-            except ValueError:
-                continue
-
-            except serial.SerialException as error:
-                if self.running:
-                    print(f"Force serial error: {error}")
-                break
-
-    def get_latest_force(self):
-        with self.lock:
-            return self.latest_force
-
     def disconnect(self):
-        self.running = False
-
-        if self.reader_thread is not None:
-            self.reader_thread.join(timeout=1.5)
-
         if self.ser and self.ser.is_open:
             self.ser.close()
+            print("Disconnected from force logger")
 
-        print("Disconnected from force logger")
+    def _parse_line(self, line):
+        line = line.strip()
 
+        if not line:
+            return None
+
+        try:
+            value = float(line)
+        except ValueError:
+            print(f"Invalid force line: {line!r}")
+            return None
+
+        self.last_raw_line = line
+        self.latest_force = value
+        self.last_update_time = time.time()
+        return value
+
+    def update_force(self, drain_buffer=True):
+        if not self.ser or not self.ser.is_open:
+            raise RuntimeError("Force logger is not connected")
+
+        latest_value = None
+
+        raw = self.ser.readline().decode(errors="ignore")
+        if raw:
+            latest_value = self._parse_line(raw)
+
+        if drain_buffer:
+            while self.ser.in_waiting > 0:
+                raw = self.ser.readline().decode(errors="ignore")
+                if not raw:
+                    break
+
+                parsed = self._parse_line(raw)
+                if parsed is not None:
+                    latest_value = parsed
+
+        return latest_value if latest_value is not None else self.latest_force
+
+    def age_seconds(self):
+        if self.last_update_time is None:
+            return None
+        return time.time() - self.last_update_time
+
+    def is_stale(self, max_age=0.25):
+        age = self.age_seconds()
+        return age is None or age > max_age
 
 if __name__ == "__main__":
-    force_logger = ForceLogger(port="COM9")
+    force = ForceLogger(port="COM9")
 
     try:
-        force_logger.connect()
+        force.connect()
 
         while True:
-            force = force_logger.get_latest_force()
+            value = force.update_force()
 
-            if force is not None:
-                print(f"Force: {force:.2f} g")
+            if value is not None:
+                print(f"Force: {value:.2f} g")
 
             time.sleep(0.05)
 
@@ -97,4 +95,4 @@ if __name__ == "__main__":
         print("Stopped force logger")
 
     finally:
-        force_logger.disconnect()
+        force.disconnect()
