@@ -55,8 +55,11 @@ class GRBLController:
     def unlock(self):
         self.send_command("$X")
 
-    ##def home(self):
-        ##self.send_command("$H")       #Only use if limit switches are installed
+    def home(self):
+        self.send_command("$H")       #Only use if limit switches are installed
+
+    def set_work_origin(self):
+        self.send_command("G10 L20 P1 X0 Y0 Z0")
 
     def set_absolute_mode(self):
         self.send_command("G90")
@@ -97,17 +100,30 @@ class GRBLController:
         if not self.ser or not self.ser.is_open:
             raise RuntimeError("GRBL is not connected")
 
+        self.ser.reset_input_buffer()
         self.ser.write(b"?")
-        line = self.ser.readline().decode(errors="ignore").strip()
-        return line
+        
+        start = time.time()
+
+        while time.time() - start < 2.0:
+            line = self.ser.readline().decode(errors="ignore").strip()
+
+            if line.startswith("<") and ("WPos:" in line or "MPos:" in line):
+                return line
+            
+        raise RuntimeError("Timed out waiting for valid GRBL status.")
 
     def get_position(self):
         line = self.get_status()
+        print("RAW STATUS: ", line)
         
-        if "MPos:" not in line:
-            return None
-        
-        position = line.split("MPos:")[1].split("|")[0]
+        if "WPos:" in line:
+            position = line.split("WPos:")[1].split("|")[0]
+        elif "MPos:" in line:
+            position = line.split("MPos:")[1].split("|")[0]
+        else:
+            return None   
+
         x, y, z = map(float, position.split(","))
 
         return {
@@ -116,14 +132,28 @@ class GRBLController:
             "z": z
         }
     
-    def jog(self, dx=0.0, dy=0.0, dz=0.0, feedrate=100):
-        position = self.get_position()
-        self.move_to(
-            x = position["x"] + dx,
-            y = position["y"] + dy,
-            z = position["z"] + dz,
-            feedrate = feedrate
-        )
+    def set_z_origin(self):
+        self.send_command("G10 L20 P1 Z0")
+
+    def wait_until_idle(self, timeout = 15.0):
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            status = self.get_status()
+
+            if status is None:
+                time.sleep(0.02)
+                continue
+
+            if status.startswith("<Idle"):
+                return
+
+            if status.startswith("<Alarm"):
+                raise RuntimeError(f"GRBL entered alarm state: {status}")
+
+            time.sleep(0.02)
+
+        raise RuntimeError("Timed out waiting for GRBL motion to complete.")
 
     def dwell(self, seconds: float):
         self.send_command(f"G4 P{seconds:.3f}")
@@ -136,7 +166,7 @@ if __name__ == "__main__":
         grbl.connect()
 
         grbl.unlock()
-        ##grbl.home()       # Use with limit switches
+        grbl.home()       # Use with limit switches
         grbl.set_units_mm()
         grbl.set_absolute_mode()
 
