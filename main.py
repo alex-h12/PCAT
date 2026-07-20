@@ -16,7 +16,7 @@ from motion_control.motion import get_position
 
 RESULTS_DIR = Path("data")
 RESULTS_FILE = RESULTS_DIR / "touch_test_results.csv"
-
+ 
 FORCE_PORT = "COM9"
 GRBL_PORT = "COM5"
 UPDATE_PERIOD = 50
@@ -96,7 +96,7 @@ class MainController:
     def update_system(self):
         log_time = time.time()
 
-        force = self.force_logger.get_latest_force()
+        force = self.force_logger.latest_force
 
         if force is not None:
             self.current_force = force
