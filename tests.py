@@ -1,14 +1,15 @@
 import time
+import threading
 
 from motion_control.motion import move, approach, press_until_force
 
-TEST_TARGET_FORCE = 10.0
+TEST_TARGET_FORCE = 20.0
 
 TEST_Z_STEP = 0.2
 TEST_SAFE_Z = 0.0
 
-TEST_XY_FEEDRATE = 50
-TEST_Z_FEEDRATE = 50
+TEST_XY_FEEDRATE = 100
+TEST_Z_FEEDRATE = 100
 
 GRID_COLUMNS = 15
 GRID_ROWS = 10
@@ -25,7 +26,8 @@ def create_grid(start, end, points):
 
 def tap_test(grbl, force_logger, calibration, controller):
     print("Starting tap test...")
-    
+    print("tap_test thread:", threading.current_thread().name)
+
     x_points = create_grid(
         calibration.x_min,
         calibration.x_max,
@@ -54,22 +56,23 @@ def tap_test(grbl, force_logger, calibration, controller):
                 z_feedrate = TEST_Z_FEEDRATE
             )
 
+            grbl.wait_until_idle()
+
             press_until_force(
                 grbl,
                 force_logger,
                 target_force = TEST_TARGET_FORCE,
                 z_step = TEST_Z_STEP,
-                z_feedrate = TEST_Z_FEEDRATE
+                z_feedrate = TEST_Z_FEEDRATE,
             )
 
-            approach(
-                grbl = grbl,
-                x = x,
-                y = y,
-                safe_z = TEST_SAFE_Z,
-                xy_feedrate = TEST_XY_FEEDRATE,
-                z_feedrate = TEST_Z_FEEDRATE
+            move(
+                grbl,
+                z = TEST_SAFE_Z,
+                feedrate = TEST_Z_FEEDRATE
             )
+
+            grbl.wait_until_idle()
 
             controller.set_robot_position({
                 "x": x,
@@ -125,7 +128,7 @@ def swipe_test(grbl, force_logger, calibration, direction, controller):
                 force_logger,
                 target_force = TEST_TARGET_FORCE,
                 z_step = TEST_Z_STEP,
-                z_feedrate = TEST_Z_FEEDRATE
+                z_feedrate = TEST_Z_FEEDRATE,
             )
             
             time.sleep(SLEEP_TIME)
@@ -171,7 +174,7 @@ def swipe_test(grbl, force_logger, calibration, direction, controller):
                 force_logger,
                 target_force = TEST_TARGET_FORCE,
                 z_step = TEST_Z_STEP,
-                z_feedrate = TEST_Z_FEEDRATE
+                z_feedrate = TEST_Z_FEEDRATE,
             )
 
             time.sleep(SLEEP_TIME)
